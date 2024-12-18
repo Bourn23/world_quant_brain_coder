@@ -1,0 +1,756 @@
+This video discusses how to use volume data to try and predict a stock's performance. The premise being tested is that if the current volume of a given stock is higher than its average volume then there is a bullish sentiment for the stock. The speaker details how this can be implemented in code using the sum operator and the industry neutralize operator. The sum operator adds the value of the volume for x number of days. Note that the value for x must be less than 512. The group neutralize operator takes in an alpha vector and the groupings, which can be anything like subindustry, industry, sector, or a constant, to neutralize the alpha against. The back testing simulation runs for 5 years and then analyzes using certain measurements like Sharpe ratio and returns to drawdown ratio, while using the top 3000 US stocks, with max capital being at 10% and using a 1 day delay for data to avoid look ahead bias. Then, the speaker introduces a small change in implementation using the step operator and demonstrates what the formula looks like and states that the step operator helps to smooth out the effect of large changes on any given day.
+
+Formulas:
+
+*  group_neutralize(volume/(ts_sum(volume, 60)/60), sector)
+    *   This formula calculates the ratio of current volume with the average volume over the past 60 days and then neutralizes it by sector. 
+    *   The reasoning behind this is that a large current volume compared to average implies a bullish sentiment about the stock, therefore a trader would want to go long on that stock.
+* ts_step(20) * volume/(ts_sum(volume, 60)/60)
+    * This formula calculates the ratio of current volume with average volume over the past 60 days. This ratio is then multiplied by the step operator.
+    * The reasoning behind this is that the step function is to average the ratio over the previous 20 days to smooth out any sudden moves and give more weight to the more recent changes compared to older ones. It will prevent sudden changes in positions and control the turnover or cost in trading.
+
+
+Summary:
+The video discusses how to implement mean reversion as a trading strategy. It introduces the hypothesis that if a value increases, it will likely decrease the next day and vice-versa. The video walks through two separate implementations of this. The first, looks at price change day to day. The second looks at a price change over the past five days using a product operator. In both cases the result is then converted into a rank. The video concludes with back-tested data that shows that the alpha coverage was significant across sectors and the returns were above expectations for all of the different tested parameters. 
+
+Formulas and Reasoning:
+*   **Alpha Expression:  -(today's price - yesterday's price)** This formula implements mean reversion by assuming a price increase today will lead to a decrease the next day and vice versa.
+*   **Alpha Expression: Rank(- (close - (Ts_Product(close,5))^(0.2)))** This formula uses a product operator to calculate the product of the last five prices for each stock. The result is then brought to a common scale using a power operator to remove any skew. Then, the price is subtracted from todays value and a rank is taken to convert to values between 0 and 1. This result is then ranked across all securities.
+*   **Rank(- signedpower(close-sum(close,5)/5,2))** This formula adds a signed power operator to an average of the last five day's price to calculate the mean. It is the same as the other expression with a slightly different formula.
+*   **SignedPower(x, e):** This operator takes as input, an expression and an exponent value, (e). It outputs the same sign as the input expression and then applies the power to the absolute value of the input expression. This creates consistent values that are ranked across securities between 0-1.
+
+
+
+This video discusses the concept of reversion in algorithmic trading, where the hypothesis is that if something increases today, it will decrease tomorrow, and vice versa. The video primarily focuses on implementing this idea using price. In a basic implementation, the alpha vector is calculated as the negative of the difference between today's price and yesterday's price. This means that if today’s price is higher than yesterday’s, the simulator will short the stock and it will go long if it is lower. In a more sophisticated implementation, the price is compared with the product of the previous five days’ price, and a power is taken to scale it. Then a rank operator is used to normalize values to be between 0 and 1. This approach is applied to the top 3000 US stocks, is delayed by one day to prevent look-ahead bias, and utilizes a maximum stock weight of 10%. A summary of results is shown, with emphasis on Sharpe ratio, returns to draw-down ratio, and turnover. Finally, the presenter discusses using signed power to give the sign to absolute values and use it as an alternate implementation.
+
+**Formulas and Reasoning:**
+
+1.  **Basic Alpha Expression (Price):**
+    *   Formula: `-(today's price - yesterday's price)`
+    *   Reasoning: This formula is a direct implementation of the reversion hypothesis. The negative sign ensures that if the price goes up today (positive difference), the alpha vector will be negative, indicating a short position. Conversely, if the price goes down (negative difference), the alpha vector becomes positive, indicating a long position.
+
+2.  **Alpha Expression (Product & Rank):**
+    *   Formula: `Rank(- (close - (Ts_Product(close,5))^(0.2)))`
+    *   Reasoning: This formula provides a more robust implementation by comparing current price with price derived from the prior 5 days.
+        *   `Ts_Product(close,5)`: The product operator outputs the product of the price for the past 5 days. This will be a very small number if all the price changes are below 1 and it will be a very large number if they are all above one.
+        *   `^(0.2)`: The power function applies a power of 0.2 to scale the price to reduce sensitivity to large price change.
+        *   `close - ...`: Subtracts the historical scaled price from the current price to get a relative change in price.
+        *   `-`: Negating to indicate a short position if there’s a positive change and vice versa.
+        *   `Rank(...)`: The rank operator outputs float numbers between 0 and 1, equally distributed amongst all the instruments. This helps normalize the values and prevent the model from concentrating capital on a few stocks.
+
+3.  **Signed Power Operator:**
+
+    *   Formula: `Sign(x) * (Abs(x)^e)`
+    *   Reasoning:  The signed power operator takes an expression (x) and a power (e) as an input and outputs the same sign as x and applies the power e to the absolute value of x. This can help in situations where you are applying a power operation that could possibly change the sign of the input.
+
+
+
+This video explains reversion and the various ways of implementing the idea when building an alpha. The hypothesis is that if something increases today, it will decrease tomorrow and that if something decreases today, it will increase tomorrow. The something can be price, volume, correlation between two things or other things. The video then talks about implementing reversion using price. The backtesting is done over the previous five years to generate an alpha vector. If the value for the stock is negative, the simulator shorts the stock. If the value is positive, it goes long on the stock. The alpha expression for this implementation is -(today's price - yesterday's price). A negative sign is added in front to achieve the objective of shorting when today's price is greater than yesterday's price.
+The video then looks at an alternative implementation of reversion using the product operator and rank operator. The product operator outputs product of the values in a vector for the past "n" days. The rank operator ranks the value of input "x" among all instruments. It returns float numbers equally distributed between 0.0 and 1.0. If a stock has the maximum value of x, its rank will be 1. If a stock has a minimum value of x, its rank will be 0. In this implementation the alpha expression is: rank(-(close - ts_product(close,5))^0.2)).  In the simulation environment, the top 3000 stocks in the USA are traded with a maximum capital of 10 percent. Also, a delay of 1 is used to prevent lookahead bias.   The results show a Sharpe ratio of 2, a returns-to-drawdown ratio of greater than 3 and a turnover of 40 percent. 
+The final implementation uses signed power operator. This operator outputs the same sign as the input and applies the power to absolute value of the input expression. The alpha expression used is: rank(-signed power(close-sum(close,5)/5,2)).
+
+**Formulas and reasoning:**
+
+1.  **-(today's price - yesterday's price)**
+    *   Reasoning: This is the most basic implementation of reversion. The sign in front of the expression helps with shorting when there is a positive change in price i.e. today's price is greater than yesterday's price.
+
+2. **rank(-(close - (Ts_Product(close,5)^0.2)))**
+
+    *   Reasoning:  
+        *   `ts_product(close, 5)`: This part calculates the product of closing prices over the last 5 days, using the product operator. The idea is to capture the trend of prices over the last few days.
+        *   `(...)^0.2`: This part takes the power of 0.2 of the product to bring it to the same scale before subtracting from the current price
+        *   `close - (...)`:  This part subtracts the result from the current closing price, capturing if the price trend has been up or down compared to the current closing price.
+        *   `-(...)`: The entire expression is negated, which is the basic reversion hypothesis.
+        *   `rank(...)`: The rank operator is used to normalize values to be between 0 and 1. This also helps with capital allocation, ensuring a stock doesn't take too much of the capital.
+
+3. **rank(-signedpower(close-sum(close,5)/5,2))**
+
+    *   Reasoning: 
+        *   `sum(close,5)/5`:  This is average of price for the last 5 days. The idea is to have a benchmark which will be used to compare the current price.
+        *   `close - sum(close,5)/5`: This part is used to see what the deviation of current price is from the average price of the last 5 days. 
+        *   `signedpower(..., 2)`: This part outputs the same sign as its input but applies the power of 2 to absolute value of the input. This makes the signal more pronounced by amplifying the deviation.
+         *   `rank(...)`: The rank operator normalizes values.
+
+
+The video explains how to use earnings per share (EPS) data, along with volume and reversion, to create an alpha signal in trading. It introduces two operators: the last different value operator and the conditional operator. The last different value operator finds the most recent change in a fundamental data, which doesn’t change frequently.  The conditional operator, similar to an “if-else” statement,  determines the alpha based on a condition. The video presents a hypothesis that if a stock's earnings increase more than other stocks, it should be longed. A short-term reversion signal would further strengthen that decision. Also, the video says that high volume further signals a positive sentiment about a stock. The implementation of this idea was shown using code, and the backtesting results for the idea are presented, including sharp ratio, returns and drawdown. It also show how the profitability of the strategy was generated across different market cap sizes and in different sectors. The presenter notes that the strategy can be improved by tweaking the conditional operator and signal. They also note that the conditional operator can also be used as a nested operator.
+
+**Formulas and Reasoning**
+
+**1. `rank(eps/last_diff_value(eps,5))>0.7`**
+
+*   **last_diff_value(eps,5)**: This operator retrieves the last different value of EPS (Earnings Per Share) from the past 5 times that the data updated. Since EPS data doesn’t update frequently, it helps in comparing a current value with a previous update.
+*   **eps/last_diff_value(eps,5)**: This calculates the ratio of the current EPS to its previous value, allowing for evaluating if the earnings have improved. This was done to check if there is a large growth in EPS.
+*   **rank( ... )**: This ranks the stocks based on their EPS change ratios, and orders them from low to high.
+*   **... > 0.7:**  This condition selects only stocks that have a high ranking which implies a good increase in earnings growth compared to other stocks. The chosen threshold is 0.7, so stocks are selected if they have better growth in EPS compared to 70% of the other stocks.
+
+**2.  `volume > ts_delay(volume,1)`**
+
+*   **ts_delay(volume,1)**: This operator obtains yesterday's volume.
+*   **volume > ts_delay(volume,1)**: This condition selects only stocks that have a higher volume than the previous day, implying that there may be a positive sentiment towards this stock and it might be a good idea to long the stock.
+
+**3. Conditional Operator and Alpha Signal**
+The following conditional operator and alpha signal are used to make decisions regarding stock purchase.
+
+    **`(rank(eps/last_diff_value(eps,5))>0.7 || volume > ts_delay(volume,1)) ? rank(-ts_delta(close,5)):-1`**
+
+*   **(condition) ? (alpha1) : (alpha2)**: This conditional operator assigns an alpha based on whether the given condition is true or false.
+    *   If the condition `rank(eps/last_diff_value(eps,5))>0.7 || volume > ts_delay(volume,1)` is true, the alpha of a stock would be `rank(-ts_delta(close,5))`.
+    *   If the condition `rank(eps/last_diff_value(eps,5))>0.7 || volume > ts_delay(volume,1)` is not true, then the alpha is -1.
+*   `rank(-ts_delta(close,5))`: If the condition is true, this part of the operator is used.
+    *   **ts_delta(close,5)**:  This operator calculates the change in closing price of a stock from 5 days ago to the current price, and is used as a reversion signal.
+    *  ** -ts_delta(close,5)**: Negates the above value to ensure a reversion-to-mean strategy is being implemented.
+    *   **rank(...)**: Rank orders stocks based on the change in the closing price. Thus stocks that have decreased in price are prioritized.
+
+   The reasoning behind this entire operator is: Stocks that show good growth in their earnings, and stocks that have higher volume than previous day are prioritized by being assigned the alpha that is dependent on the change in price. This also prioritizes stocks where the closing prices are relatively lower than 5 days ago. If these conditions are not met, a default alpha of -1 is assigned, signaling that a short position might be more suitable.
+
+
+
+Certainly, here's a summary of the video along with the formulas used and their reasoning:
+
+**Summary:**
+
+The video explains how to use Earnings per Share (EPS) data and other factors to construct an alpha model for trading stocks. It introduces the concept of using historical earnings data to predict future stock behavior. The presenter discusses the use of two key operators: "last_diff_value" and the "conditional operator," to build this trading model. The "last_diff_value" operator finds the most recent difference in fundamental data, such as EPS, which generally does not change frequently.  The conditional operator works as an "if else" function. This operator will check if the condition provided is true or false. The video also describes backtesting simulations run over five years, and discusses using higher trading volume as well as short term price reversion as an additional indicator. The model assigns a positive alpha to stocks when current earnings are higher than the last earnings, volume is high or the stock price is in a short term dip. It assigns a negative alpha if those condition are not met.  Finally, the presenter showcases performance metrics including sharpe ratios, return to drawdown ratios, turnover, and profit and loss numbers
+
+**Formulas and Reasoning:**
+
+**1.  Alpha Expression:**
+
+```
+(rank(eps/last_diff_value(eps,5))>0.7 
+|| volume>ts_delay(volume,1))?
+rank(-ts_delta(close,5)):-1
+```
+
+*   **`rank(eps/last_diff_value(eps,5))>0.7`**
+    *   **`last_diff_value(eps,5)`**:  Calculates the last time there was a difference in EPS over the last 5 reporting periods. It is good for fundamental data, as fundamental data doesn't change often.
+    *   **`eps/last_diff_value(eps,5)`**: Finds the ratio of the current eps to the last eps, thereby measuring change over time.
+    *   **`rank(...)>0.7`**: Ranks this ratio across the universe of stocks, identifying those whose earnings have improved significantly compared to the universe. If this ratio ranks in the top 30% of stocks, the first part of the condition is met.
+   
+*   **`volume>ts_delay(volume,1)`**
+    * **`ts_delay(volume,1)`**: Delays the volume by one time period. This looks for increased trading volume compared to yesterday
+    * **`volume>ts_delay(volume,1)`**: The second part of the conditional is if volume today is greater than volume yesterday.
+
+*   **`||`**:  This is an OR operation, connecting the two conditions in the conditional operator.
+
+*   **`?`**: This symbol is part of the conditional operator. If either condition above is true, the expression following this is to be returned.
+
+*   **`rank(-ts_delta(close,5))`**: If the condition is true,  This calculates the change in price over the past 5 days and ranks them from most negative to least negative. The most negative stocks will have a larger positive alpha
+
+    *   **`ts_delta(close,5)`**: Calculates the difference in closing price over the past five days
+    *   **`-ts_delta(close,5)`**: negates the above so price drops result in a positive value.
+    *   **`rank(...)`**: Ranks this result across the universe of stocks, most negative change being ranked the best and receiving the most positive alpha.
+
+*   **`:-1`**: This indicates if the above conditional is false, return -1 for all stocks.
+
+**Reasoning:**
+
+This alpha expression combines several signals:
+
+1.  **Earnings Improvement:** Ranks stocks whose EPS has shown an upward change and places a positive weighting on stocks with greater positive changes than the rest of the universe.
+
+2. **High Volume**: An increase in volume can be interpreted as positive investor sentiment and a catalyst for price increases. The operator places a positive weighting on these stocks
+
+3. **Short Term Reversion**: If a stock has dropped in price recently it is an indicator that it may revert and increase in the short term.
+
+4.  **Long/Short Indicator**: By returning 1 or -1, it separates buy or sell signals.
+
+In summary, the expression identifies stocks that have improving earnings and positive investor sentiment, and are good candidates for a long trading strategy. It identifies stocks with poor performance, and uses them as short trading candidates. The conditional operator evaluates whether the stocks fit the profile.
+
+**2. Conditional Operator Syntax**
+
+```
+cond ? expr1 : expr2
+```
+**Reasoning:** This is the general syntax for the conditional operator. It checks if "cond" is true. If so, the first expression is returned. If false, the second expression is returned.
+
+**3. Conditional Operator Description**
+```
+If/else - If cond is true, expr1; else expr2.
+```
+**Reasoning:** Provides the logic behind the conditional operator, that it returns "expr1" if true, and "expr2" if false.
+
+**4. Conditional Operator Example**
+```
+close < open ? close : open
+```
+**Reasoning:** If the close is less than the open, this returns the closing price, otherwise returns the opening price.
+
+In the video, these operators and formulas are used in combination to produce a long/short trading strategy.
+
+
+In this video, Nitish Maini, Chief Strategy Officer at WorldQuant, discusses the importance of proper checks for quantitative alphas, particularly within the Python framework. He presents two critical checks: ensuring the right set of stocks are being traded as defined by the universe, and that no value within the expression trends towards infinity. The "pasteurize" operator is introduced to address this issue by setting values to NaN when a signal is infinite or the instrument is not in the universe.
+
+He then presents two example alphas to demonstrate the use of statistical operators. The first, a Vwap over Close alpha using the log and pasteurize operators, and the second, a volatility-based alpha using covariance and standard deviation operators, are discussed and tested. Finally, he discusses key simulation parameters that were used when analyzing these alphas.
+
+Formulas and Reasoning:
+
+1.  **Alpha 1 (Vwap over Close):** `log(pasteurize(vwap/close))`
+
+    *   **`vwap`:** Volume Weighted Average Price
+    *   **`close`:** Closing price of the stock
+    *   **`vwap/close`:** Creates a ratio signal, designed to quantify if the average price at which the stock traded for the day is above or below its close price
+    *   **`pasteurize()`:** This operator prevents values approaching infinity or NaN from propagating, thus ensuring numerical stability of the alpha expression. Specifically, if the vwap or the close is zero or the instrument isn't in the universe, the operator would output NaN
+    *   **`log()`:** The natural logarithm is applied to scale the signal from a ratio to an output that can be ranked and interpreted more easily
+
+2.  **Alpha 2 (Covariance/Volatility):** `rank(ts_covariance(ts_std_dev(-returns,22),(vwap-close),22))`
+
+    *   **`returns`:** The daily return on the stock
+    *   **`ts_std_dev(-returns, 22)`:** Calculates the standard deviation of the negative daily returns over a rolling 22 day window, representing volatility of returns. Negative returns are used so the standard deviation increases with lower returns
+    *   **`vwap-close`:**  The difference between the volume-weighted average price and the closing price for the stock, also known as the daily delta of prices
+    *   **`ts_covariance(x, y, 22)`:** Computes the covariance of two time-series `x` and `y`, over a rolling 22 day window. In this case, the covariance of the return volatility and the daily delta of the price is calculated. This is designed to signal that if the volatility of price decreases along with a rise in vwap, then the simulator should go long the stock.
+    *   **`rank()`:** The resulting covariance is then ranked among the entire stock universe to normalize the signal and generate an alpha for each stock.
+
+3.  **Time Period (512 Days):** It is highlighted that in the Python Framework the time period for operations such as time series covariance, time series standard deviation, or for any windowed analysis such as lookback, decay or delay should always be less than or equal to 512 days. This has technical reasons related to implementation and data storage and can result in errors or unexpected results if violated.
+
+4. **Simulation Parameters**
+  *   **Universe:** Top 3000 US stocks (based on liquidity)
+  *   **Max Stock Weight:**  0.1 (Maximum weight that any stock can have is 10%).
+  *  **Lookback:** Number of days the alpha was backtested over was set to 256
+  *   **Delay:** Delay of 1 for the Vwap over Close alpha, 0 for the Volatility Alpha
+   *   **Neutralization:** Both alphas are neutralized over subindustry categories, helping the returns become more diversified.
+
+The reasoning behind these formulas lies in attempting to find alpha signals by analyzing the interplay between various price movements and volatility signals, while ensuring stability and preventing any potential look-ahead bias. The "pasteurize" and rolling window operators are employed to maintain the numerical validity of the alpha expression and provide the basis for proper backtesting. By choosing the correct simulation parameters, they aim to isolate the actual signal of the alpha.
+
+
+The video explains the basic concept of reversion and how it can be used to generate alpha, particularly by using the time series regression operator. The presenter discusses the idea that when something rises it will eventually fall, and vice versa. He explores this idea in a simple format, by taking the negative of returns, and also more deeply using the regression operator. The video then explains how to use multiple data points to create the best possible alpha. Finally, the video provides sample data that reflects a good alpha with consistent returns over time, but also recognizes the risks involved and the need to have a good ratio of returns and drawdowns, and as low of a turnover as possible.
+
+**Formulas and Reasoning:**
+
+1. **Returns:**  (Today's Price - Yesterday's Price) / Yesterday's Price. This formula calculates the percent change in a stock's price from one day to the next. It's used to quantify the daily performance of a security.
+
+2.  **- (Returns):** This is the simplest implementation of the reversion strategy. The negative of daily returns are used to generate a predictive signal. The logic here is that if a stock had a positive return today (increased in price), it is expected to fall tomorrow. This is a contrarian bet and goes against the daily return pattern in the hopes of mean reversion. 
+
+3. **Time Series Regression Operator (TS_Regression)**:  TS_Regression takes five variables as input: 1) Dependent Variable (value to be predicted); 2) Independent Variable (predictor); 3) Time window; 4) Lag in the independent variable; 5) Desired output. The regression calculates how the independent variable predicts the dependent variable over a given window. The lag ensures no future information is used to predict current values. 
+
+4.  **Alpha Expression Implementation:**
+
+    * **A = ts\_regression(close, close, 20, LAG=1, RETTYPE=3):** This line uses the regression operator, with the dependent and independent variables being the closing price. The window is 20 days, a lag of one day, and RETTYPE =3 is specified so the equation yields the predicted close price, or the estimate of the dependent variable. This implements the reversion hypothesis using the regression operator.
+
+    * **B = ts\_sum(ts\_delay(close, 1), 2)/2:** This line computes the average closing price using the ts_sum operation and the ts_delay for the current closing price with a one-day lag for a 2-day window.
+
+    * **C = (A-B)/close:** This line combines the predicted close price from the TS_regression, the average closing price of the previous day, and the current closing price to form the main return prediction signal.
+
+    * **D = 1 - rank(volume / ts\_sum(volume, 30) / 30) :** This line calculates a ratio between current volume and average volume over the past thirty days using the ts_sum operation to create an alpha that can be combined with the predicted return signal from the previous step.
+
+    * **-ts_rank(C, 60) * D**: The ts\_rank operation provides values from zero to one based on the highest and lowest values for C for the last 60 trading days, multiplied with the value from the previous step, D. The minus sign makes this a reversion trade. This final line combines the predicted price and the volume ratio, creating a stronger predictor signal by accounting for volume, which signals strength, weakening, or continuation of reversion.
+
+
+Okay, here's the summary of the video and the formulas mentioned with reasoning, as requested:
+
+**Summary**
+
+This video from WorldQuant BRAIN discusses overfitting in the context of alpha (mathematical relationship between a stock and the financial market) development. Overfitting happens when an alpha's performance on future, unseen data varies drastically from its simulated performance using original, historical data. There's no definite way to avoid it, but good practices can reduce the issue.
+
+The presenter, Nitish Maini, suggests:
+
+1. **Focus on the Idea:** Prioritize improvements based on the underlying logic of the signal rather than randomly adding conditions or parameters.
+2. **Avoid Small Performance Changes:** Don't add changes that lead to small improvements in backtesting; these can result in a huge negative impact outside of the backtested data. 
+3. **Logical Parameter Fitting:** Instead of random values, ensure parameters used have a logical basis and relation to the problem. For example, use values like 5 days for a week, 10 for two weeks, or 20 for a month.
+
+He also mentions tests to check the robustness of the signal and to check if the alpha is overfitted.  He suggests analyzing the performance of the alpha on various subsets of stocks in its universe, comparing its performance on its original group to a group of 500 more liquid stocks. He says that the strength of predictibility can be tested by removing the impact of magnitude from the signal by taking the sine of the whole expression.  If the results are still good then the alpha is not overfitted.  He also suggests using the rank of an expression to test the impact of capital allocation.
+
+**Formulas and Reasoning**
+
+While the video does not explicitly use mathematical notations, it uses a mathematical concept and the presenter makes references to equations.
+
+1. **Sine of an expression:**
+    * **Formula:** `sin(expression)`
+    * **Reasoning:** This technique is used to remove the impact of magnitude and only consider the sign of the expression. This can help measure predictability of direction (long or short), without the influence of how big of a long or short position a model takes. It helps determine the ability to predict whether a stock should be bought or sold, without having the prediction influenced by how much it should be bought or sold.
+
+2. **Rank of an Expression:**
+    * **Formula:** `rank(expression)`
+   * **Reasoning:** Taking the rank of an expression helps normalize the capital allocation across various stocks by distributing the capital based on the rank of each stock. This allows for a more uniform distribution instead of heavily investing into stocks with very large values of the expression, and underinvesting in stocks with low values of the expression. It provides a more even distribution and reveals the predictive strength of the alpha relative to each other. By doing so it can show how much the performance is driven by the ranking (capital allocation) itself.
+
+
+
+This video discusses backtesting and potential biases that can arise during the process. Backtesting is defined as exposing an idea to historical financial data in order to provide expectations about future performance. The advantages of backtesting include the ability to determine whether a proposed investment strategy would have resulted in gains or losses and to estimate potential exposures, maximum drawdowns, potential returns, and likely costs. The video emphasizes the importance of avoiding biases when backtesting, and lists three common biases that can occur, including look-ahead bias, survivorship bias, and psychological bias. Look-ahead bias is when future data is accidentally included in the simulation at a point in time when it wouldn't have been available. Survivorship bias occurs when strategies are tested on data sets that don't include the full universe of prior assets. Psychological bias refers to underperformance as a result of the fear of drawdowns.
+
+**Formulas and Reasoning:**
+No explicit mathematical formulas are presented or used in the video. The video describes a conceptual process of data analysis and the importance of avoiding certain biases. Therefore, there are no mathematical formulas to extract.
+
+
+
+A company can use two ways to finance its operations. One way is to use debt from lenders or creditors like banks. The second way is to obtain equity from investors or the shareholders. Unlike equity financing, debt must be paid back to the lender and includes regular interest payments. Companies that have a large amount of debt may have trouble making payments. A debt-to-equity ratio of one means that the investors and creditors have an equal stake in business assets. Lower debt-to-equity ratios mean the business is more financially stable. Companies with higher debt-to-equity ratios are considered more risky for investors and creditors, and it may indicate that investors aren’t willing to fund the operations as much as the creditors due to performance issues. 
+
+Formulas:
+* **Debt-to-equity ratio = Total Debt / Total Shareholder Equity.** The debt-to-equity ratio is used to determine the capital structure of the company. It can help determine how much creditors and investors have at stake in a company. In the video, it is shown that the debt-to-equity ratio is equal to 1 which means the investors and creditors have an equal stake in business assets.
+* **TS_Rank(-debt/equity, 240):** A high debt-to-equity ratio can also signal that the company is riskier to the creditors and investors, so the time-series rank of this formula can be used to help understand if the current debt-to-equity ratio level is high or low as compared to the company's normal level over the last 240 days.
+The negative sign in front of the debt-to-equity ratio implies the desire to short the stock. 
+The neutralization operator that is placed on the vector will make sure that an equal amount of funds is invested in the long positions and equal amount in the short positions.
+The video mentions going long on stocks with debt-to-equity ratios less than average and short on stocks with debt-to-equity ratios higher than the average. This shows that lower debt-to-equity ratios are more desirable and result in a better long-term outcome.
+
+
+Here is a summary and breakdown of the formulas from the video:
+
+**Summary**
+
+This video explains how changes in a company's debt relative to its total assets can be used as a signal for generating alpha in quantitative trading. The idea is based on the concept of financial leverage and the associated risk. A lower debt ratio signals lower financial risk, which is positive, while a higher debt ratio signals higher financial risk, which is negative.
+
+The video then defines the debt ratio as a financial ratio that measures the extent of a company's leverage. The presenter then outlines a specific approach using the rank operator, delta operator, and sector-neutralizing operator. The system then goes long on companies with decreasing debt and shorts companies with increasing debt.
+
+Finally, the presenter provides the alpha implementation using those three operators, a description of their properties and values, and then provides results from a backtest simulation and other visuals for a general overview of the method.
+
+**Formulas & Reasoning**
+
+1.  **Debt Ratio = Total Debt / Total Assets**
+   *   **Reasoning:** This is a standard financial ratio used to measure a company's leverage. It quantifies how much of a company's assets are financed by debt. A higher ratio indicates greater reliance on debt and, thus, higher financial risk.
+
+2.  **Alpha Expression: group_neutralize(rank(-ts_delta(debt, 60)/(assets)),sector)**
+    *   **Reasoning:** This expression defines the strategy using specific operators:
+        *   **`debt`:** Represents the company's current total debt.
+        *   **`assets`:** Represents the company's current total assets.
+        *   **`ts_delta(debt, 60)`**:  Calculates the difference between the current debt and the debt value from 60 trading days ago (approximately one quarter). It is used to see if a company's debt has increased or decreased compared to the previous quarter.
+        *   **`debt / assets`:** This calculates the current debt-to-asset ratio for a company.
+        *   **`ts_delta(debt, 60) / assets`**: This combination takes the difference in the debt from last quarter and divides it by the current assets. This normalizes the debt movement by asset size.
+        *   **`- (ts_delta(debt, 60)/ assets)`:** The negation of the fraction is applied in order to have companies with decreasing debt in the positive values which are ranked highly, and those with increasing debt to fall to the bottom.
+        *   **`rank()`**: Ranks all stocks in the universe based on the negated fraction above, making the data easier to work with across assets and generating a value between 0 and 1.
+        *   **`group_neutralize(..., sector)`**: Neutralizes the value of the rank by the sector, so that the stocks which are positive are positive within the sector and vice versa. This is done to remove sector-specific biases and isolate the strategy's edge.
+
+   *   **Overall Logic:** The expression calculates a normalized change in the debt ratio, ranks it across the universe, and then neutralizes sector-specific biases. A higher ranked value represents a more favorable change in leverage.
+
+**Hypothesis**
+
+*   **Lower Debt Ratio Change = Positive Signal:** A company's debt decrease relative to its assets, implies a decrease in leverage and financial risk. Therefore, the system goes long on the stock.
+*   **Higher Debt Ratio Change = Negative Signal:** A company's debt increase relative to its assets implies more leverage and financial risk. Therefore, the system goes short on the stock.
+
+
+This video explains the use of inventory turnover as an investment strategy. It begins by defining inventory turnover as a measure of how quickly a company sells through and replaces its inventory. It is calculated by dividing sales by average inventory. The average inventory is calculated by adding the beginning inventory and the ending inventory and dividing the sum by 2. A high inventory turnover rate can be a signal of a company’s good performance in selling its goods. Higher inventory levels result in higher storage costs, insurance and risk of deterioration. The hypothesis of the investment strategy is that stocks will perform better if a company’s inventory turnover improves over time and vice versa.
+
+To implement the strategy two operators are used: the rank operator and the Z-score operator. The rank operator assigns values to the stocks between 0 and 1 to indicate its value compared to the other stocks in the universe. The Z-score operator calculates a given stock’s value using today’s value with its values of over the past ‘n’ days using this formula: z-score = (x - ts_mean(x)) / ts_std(x). A stock with a negative value is shorted and a stock with a positive value is longed. A 240-day look back period is used. A 0 day delay was set. A max stock weight of 0.1 was set and industry was used as a means of neutralization.
+
+The results of the test show a Sharpe ratio of around 2.5, a return to drawdown ratio of 5 and a 6% turnover. The coverage is decent but there are fluctuations that appear because inventory turnover data is only updated on a quarterly basis. Different cap sized firms performed reasonably well, and performance was decent across multiple sectors. This strategy can be further improved by incorporating other data points such as earnings and cost of goods.
+
+Formulas:
+* Inventory Turnover = Sales/Average Inventory
+The reasoning behind using this formula is that it quantifies how fast a company sells and replenishes its inventory. It measures a company’s efficiency in handling its inventory. A high turnover rate indicates robust sales and efficient inventory management, which are considered signs of good business performance.
+
+* Average Inventory = (Beginning Inventory + Ending Inventory)/2
+This formula is used to determine the average value of a company’s inventory over a period of time. It simplifies a company’s inventory value by giving one single average number. 
+
+* Z-Score = (x - ts_mean(x)) / ts_std(x)
+The Z-score formula is used to standardize a variable x based on its mean and standard deviation. The Z-score measures the difference between the given value x and its mean, and then adjusts that distance to the scale of standard deviations. The Z-score operator is used to standardize current inventory turnover data with values over the previous 240 days.
+
+
+This video by WorldQuant explains a way to use fundamental data as a filter for taking positions on stocks. The presenter, Nitish Maini, Chief Strategy Officer at WorldQuant, focuses on combining fundamental data with base data, also known as price-volume data, to enhance alpha generation. The fundamental data filter is based on sales per share, also called revenue per share, calculated by dividing the total revenue of a fiscal year by the weighted average of outstanding shares for that fiscal year. A high sales per share ratio indicates that the company is more active, and investors tend to pay attention to a company’s sales number. The hypothesis is that if a company’s sales per share is higher than the previously reported value, upward momentum is established, while a lower sales per share could lead to mean reversion of the stock price.  The implementation uses the rank operator, delta operator, conditional operator, and the last different value operator.  The rank operator ranks a stock among other stocks.  The delta operator calculates the change in a value between the current time and "n" days ago.   The conditional operator acts as an “if, else” statement.  The last different value operator returns the most recent different value.  
+
+The back testing was done over a 5 year period. The top 3,000 US stocks based on liquidity were used with a 1% max stock weight. There was a 1 day delay to prevent look ahead bias. 
+
+The Sharpe ratio was around 2. The return to draw down ratio was also roughly 2, and the turnover was about 40%.  Coverage was observed across various industries and sectors. 
+
+To improve, a condition that compares the magnitude of sales per share to the last different value of sales per share could be added. Furthermore more complex methods for weighting the stocks could be utilized using fundamental and price volume data.
+
+**Formulas and Reasoning**
+
+**Sales per Share (Revenue per Share)**:
+
+*   **Formula:** Total Revenue of a Fiscal Year / Weighted Average Outstanding Shares for that Fiscal Year.
+*   **Reasoning:** This fundamental ratio indicates the total revenue earned per share by the company. Investors typically pay close attention to sales, making this ratio relevant for evaluating the company's business performance. A higher sales per share ratio suggests the company is more active.
+
+**Rank Operator:**
+
+*   **Description:** Ranks the input argument of a stock among all the stocks in the universe.
+*   **Reasoning:** To normalize stock data and distribute values evenly between 0 and 1. It creates a common scale which is useful for comparison.
+
+**Delta Operator (ts_delta):**
+
+*   **Formula:** Current Value of Input - Value of Input “N” days ago.
+*   **Reasoning:** To measure changes over time. A positive delta means data is increasing while a negative delta means that the data is decreasing.
+
+**Conditional Operator (if-else):**
+
+*   **Formula:** If (condition is true) then expression 1, else expression 2.
+*   **Reasoning:** Used to apply different logic based on whether the sales per share are trending upward or not. If upward trend, assign a 1. If not apply time series delta.
+
+**Last Different Value Operator (last_diff_value):**
+
+*   **Description:** Returns the most recent value of the input argument that is different from the current value of the input argument.
+*   **Reasoning:** Used to measure a change between values which are not updated very often, like fundamental data. Used for capturing differences in sales per share since those values are not updated daily. 
+
+**Combined Formula:**
+
+```
+sales_ps > last_diff_value(sales_ps,5)? 1 : rank(-ts_delta(close,5))
+```
+
+*   **Reasoning:** Implements the strategy, using the conditional operator to determine if sales per share are trending upward. If upward, use the rank operator and then assign the maximum weight possible. Otherwise, use the weekly reversion signal.
+
+
+Okay, here is a summary of the video and the formulas with their reasoning:
+
+**Summary:**
+
+This video from WorldQuant explains a stock trading strategy using two fundamental financial ratios: Cost of Goods Sold to Property, Plant, and Equipment (COGS/PPENT) and Inventory Turnover. It hypothesizes that if both these ratios are improving over time, it is likely that a company's stock price will increase and, conversely, if both are decreasing, the stock price might decrease. The video also explains how to implement the strategy using the rank operator and time series rank operator and shows the results of a backtesting simulation. It concludes by exploring the ways to improve this idea using different fundamental ratios and technical indicators. 
+
+**Formulas and Reasoning:**
+
+1. **COGS/PPENT**
+   *   **Definition:** Cost of Goods Sold divided by Property, Plant, and Equipment.
+   *   **Reasoning:** This ratio measures how efficiently a company utilizes its fixed assets (property, plant, and equipment) to generate the goods that are sold for their business activities. A lower value is desirable which would mean that a company uses its fixed assets more efficiently, whereas a higher ratio could mean that the company has low production efficiency, which might result in lower sales and lower revenue.
+
+2.  **Inventory Turnover**
+    *   **Definition:** Sales divided by Average Inventory
+    *  **Reasoning:** Measures how quickly a company sells and replaces its inventory. A higher inventory turnover is usually better as it signifies higher operational efficiency, lower inventory storage, lower expenses such as insurance, and lower deterioration, indicating a company's ability to keep their product in demand. High inventory levels can lead to higher costs in storage, insurance, and the risk of deterioration. A high turnover generally means that a company is able to sell their inventory quickly and that they are more operationally efficient.
+
+3. **Average Inventory**
+    *   **Definition:** (Beginning Inventory + Ending Inventory) / 2
+    *   **Reasoning:** A simple way to calculate the average inventory over a given period, typically one accounting period. It balances the values from the beginning to the end to arrive at a representative average for use in the turnover formula above.
+
+4.  **Alpha Formula**
+    *   **Definition:** `rank(ts_rank(cogs/(ppent),240)) * (1 + rank(ts_rank(inventory_turnover,240)))`
+    *   **Reasoning:**
+        *   **`ts_rank(cogs/(ppent),240)`:** Uses a time series rank operator that calculates the rank of the `cogs/(ppent)` ratio over the past 240 days, showing whether the company’s ratio is improving or decreasing.
+        *   **`rank()`:** Ranks the value across all stocks in the universe, assigning a value from 0 to 1.
+        *   **`ts_rank(inventory_turnover,240)`:** Uses a time series rank operator that calculates the rank of the inventory turnover ratio over the past 240 days, showing whether the company’s ratio is improving or decreasing.
+        *   **`rank()`:** Ranks the value across all stocks in the universe, assigning a value from 0 to 1.
+        *   **`(1 + rank(ts_rank(inventory_turnover, 240)))`**: The `rank` is added to one to ensure that the value is a positive integer.
+        *   **Multiplication**: The two `rank` functions are multiplied to strengthen the overall signal for the company.
+
+5.  **Rank Operator**
+    *   **Definition:** Ranks the input argument of a stock among all stocks in the universe.
+    *  **Reasoning:** The rank operator creates a normalized value for comparing each stock in the universe with each other. It can be easily scaled to make comparisons among different stocks using data that would not otherwise be comparable. The assigned value lies between 0 and 1, which helps in standardizing data.
+
+6.  **TS\_Rank (Time Series Rank) Operator**
+    *   **Definition:** Ranks the first argument value with respect to its own values over the past 'n' days.
+    *   **Reasoning:**  The time series rank operator is a normalized value compared against previous values for the given stock to determine a trend. It can also be easily scaled to make comparisons among different stocks using data that would not otherwise be comparable. The assigned value always lies between 0 and 1, which helps in standardizing data.
+
+
+
+This video explains an investment strategy using an analyst data value of estimated earnings per share (EPS) and how that can be used to determine if a stock is undervalued or overvalued. EPS is calculated by dividing net income after dividends by the number of outstanding shares. A higher EPS generally indicates a more profitable and attractive company.
+
+The video’s hypothesis is that if the ratio of estimated EPS to the closing stock price (est\_eps/close) is increasing over time, the higher the ratio, the higher the return potential for the stock. Conversely, if the ratio is decreasing over time, due to decreased return potential, the stock price will likely decrease.
+
+The strategy is implemented using two operators: a rank operator and a time-series rank operator. The rank operator ranks the input argument of a stock among all stocks in the universe, with assigned values equally distributed between zero and one. The time-series rank operator ranks the first argument value, which is the ratio, with respect to its own values over the past “n” days.  The value returned by this is always between 0.0 and 1.0. This operator looks backward in the time series to indicate improvement or decrease in the EPS/close ratio.
+
+The alpha, or investment idea is implemented by using “rank(ts_rank(est\_eps/close,40))”. This means that, first, the time-series rank will get the rank of the past 40 days, then all the stocks’ rank values from that day are ranked again.
+
+The implementation also has a 1-day delay, so there is no look-ahead bias. A max stock weight of 0.1 and neutralization over the sub industry.  It uses the top 3000 US stocks by liquidity.  The results from the backtest are shown through graphics, statistics, and charts. The Sharpe ratio is approximately 1.91, return to draw down is about 2, and turnover is 38%.
+
+This strategy could be further improved by including other analyst estimates, such as estimated sales per share. This would provide more context to the market consensus and company's expected business performance.
+
+Formulas:
+
+1.  **Earnings Per Share (EPS):**
+  Net Income After Dividends / Average Number of Outstanding Shares
+
+  *   Reasoning:  EPS represents a company's profitability on a per-share basis.  It is a direct measure of how much profit is generated for each share, and is a basic building block for this model.
+
+2.  **est_eps / close**
+
+    *   Reasoning: This ratio shows how the market is valuing the estimated profits of the stock, relative to its current price.  It uses the estimated EPS as a way to determine if the current price of the stock is undervalued, overvalued, or correct.
+
+3.  **rank(ts\_rank(est\_eps/close,40))**
+
+    *   Reasoning: This is the core of the investment idea being implemented.  
+    *   **ts\_rank(est\_eps/close, 40):** This part calculates the ranking of the `est_eps/close` ratio for each stock over a 40-day lookback period. It returns a value between 0 and 1, indicating where the current value stands relative to its past performance, showing how that value may be trending up or down.
+    *   **rank( ):** This part takes the output of the time-series rank and then ranks all the stocks against each other. This returns a value between 0 and 1, showing the value of the stock relative to other stocks, and allowing for equal distribution.
+
+
+Here’s a summary of the video along with formulas used and their reasoning:
+
+**Video Summary**
+
+The video introduces an idea based on the change in financial ratios and uses analyst data to predict stock movements. The focus is on the price-to-earnings (P/E) ratio using estimated earnings per share (EPS). The hypothesis is that the P/E ratio is mean-reverting. The strategy involves going long on stocks where the P/E ratio has decreased in the past five days and shorting stocks where the P/E ratio has increased. The implementation uses a rank operator and a delta operator. The backtesting simulation was done for the previous five years and generates an alpha vector for each day, and has a Sharpe Ratio of around 1.8, returns to drawdown ratio of approximately 2 and a turnover of 40%. This implementation is also diversified across equity capitalizations and the capital distribution across industries is also distributed. The sharpe ratio is decent across various sectors. Further improvements are suggested by incorporating the degree of dispersion in the EPS estimates, and also using volume data to better capture the mean reversion patterns.
+
+**Formulas and Reasoning**
+
+**1. Earnings Per Share (EPS)**
+
+*   **Definition:** Net earnings a company makes per each outstanding share of a stock in a given period.
+*   **Reasoning:** It is a fundamental measure of a company's profitability on a per-share basis.
+
+**2. Estimated EPS (EST\_EPS)**
+
+*   **Definition:** The consensus of analyst estimates of a company's earnings per share, generally generated for the coming quarter, fiscal year, or the next fiscal year.
+*   **Reasoning:** Used to give investors an idea of the market’s expectation of a company’s future profitability.
+
+**3. Price-to-Earnings (P/E) Ratio**
+
+*   **Formula:** `close / est_eps` where `close` is the current stock price.
+*   **Reasoning:** The ratio tells how much investors are paying for each unit of a company’s estimated earnings. It can also be seen as a premium. The ratio is leading as it is using the expected earnings for a future period.
+
+**4. Alpha**
+
+*   **Formula:** `-rank(ts_delta(close / est_eps, 5))`
+    *   `ts_delta(close/est_eps, 5)` calculates the difference in P/E ratio between today and 5 days ago for each stock.
+    *   `-` negates the result such that a decrease in P/E will produce a positive result.
+    *   `rank(...)` applies a rank operator to the above, which converts the result into a number between 0 and 1.
+*   **Reasoning:**
+    *   The core idea relies on the mean-reversion principle and captures the weekly mean reversion element by tracking changes in the P/E ratio.
+    *   The delta operator shows how the ratio changed over the last five days.
+    *   By ranking the stocks, we have a normalized score between 0 and 1.
+
+**Operators Explanation**
+
+*   **Rank Operator:** ranks the input argument of a stock among all the stocks in the universe such that the assigned value is equally distributed between 0 and 1.
+*   **TS\_Delta Operator:** Calculates the difference between the current value of the first argument, and the observed value n days back. If the data has been increasing with time, the delta will return a positive number, and negative if decreasing with time.
+
+
+**Summary:**
+
+This video from WorldQuant, presented by Nitish Maini (Chief Strategy Officer), explains how to build an alpha signal based on the combination of analyst data and base data. The video focuses on utilizing analyst estimates of earnings per share (EPS) to filter stocks, making an upward price momentum when positive revisions are made to their EPS. The signal defaults to a weekly mean-reversion signal in the absence of positive revisions. The video also showcases the usage of WorldQuant's BRAIN platform with multiple parameters that include region, universe, delay, decay, max stock weight, neutralization, and lookback days for the backtesting simulation that run for a previous five years. The video concludes with some suggestions on further improvements for the presented alpha signal that include integrating sentiment data, and differentiating positive revision case with the negative revision case.
+
+**Formulas and Reasoning:**
+
+**ALPHA:**
+
+`est_epsr > last_diff_value(est_epsr,5)? 1:rank(-ts_delta(close,5))`
+
+**Explanation:**
+
+*   **`est_epsr > last_diff_value(est_epsr, 5)?`**: This is a conditional statement. It checks if the current estimated EPS (`est_epsr`) is greater than the last different value of the estimated EPS reported within the past five reporting period. 
+    *   If **True**: The signal defaults to 1, which indicates a long position on the stock.
+    *   If **False**: The conditional statement evaluates rank(-ts_delta(close,5)).
+
+*   **`rank(-ts_delta(close,5))`**: This is the default alpha signal that is used in case the condition above is false.
+    *   `ts_delta(close,5)`: This calculates the difference between the current closing price (`close`) and the closing price from 5 days ago. This can be an indication of the change in the price over the period, and can indicate the direction of the trend.
+    *   `-ts_delta(close,5)`: This negative sign reverses the delta value to take opposite trade positions.
+    *   `rank(...)`: This ranks the resultant values, making sure that the output is evenly distributed between 0 and 1.
+
+**Reasoning:**
+
+*   **Analyst Estimates as Filters**: Analyst data, specifically EPS estimates, are seen as a source of information that the investors might use to evaluate and value stocks. The revisions in these estimates are indicators of a change in their assessment and the expected value of the stock, creating a momentum shift in the market.
+*   **Positive Revision Hypothesis**: The hypothesis is that when analysts increase their EPS estimates, the stock price will likely increase because of investors acting on the new information. So if a positive revision happens, the signal is to take a long position on the stock
+*  **Weekly Mean Reversion**: The mean-reversion strategy is used as a fall back signal if there is no positive revisions. A delta value will take the mean price point from the previous five day prices, and indicate a signal to act on a value closer to the mean. The negative symbol reversed the action to take a short position if there's a price momentum and a long position if the price dips lower than the mean.
+*   **Ranking for Scaling**: The rank operator is used to smooth and normalize the signal so that they have equal impact on all the stocks.
+*   **Last Different Value**: The `last_diff_value` is used to ensure we pick the last different value to correctly measure revisions and to prevent looking ahead.
+*   **Delta Operator**: The ts\_delta operator is used to find the changes in price over a set period, and take actions accordingly.
+
+
+
+This video discusses how to build an alpha based on inventory levels as a proportion of total assets, while also taking into account the inventory turnover ratio. The presenter defines inventory turnover, goodwill, and the ratios, all while explaining how to calculate each with formulas. He explains that higher values of inventory value to total assets could signify problems for a company, while higher values of inventory turnover signify operational efficiency. The presenter states the hypothesis that increasing ratios of inventory to total assets should result in poorer stock performance, unless that is mitigated by a company's increasing inventory turnover.
+
+**Formulas:**
+
+*   **Inventory Turnover = Sales / Average Inventory**
+    *   _Reasoning_: This formula calculates how quickly a company sells and replaces its inventory, thus showing how efficiently a company manages its inventory.
+
+*   **Average Inventory = (Beginning Inventory + Ending Inventory) / 2**
+    *   _Reasoning_: The average of the starting and ending inventories over a specific period helps to smooth out any fluctuations in inventory levels over that period.
+
+*   **Alpha = (0.5 - rank(ts_rank(inventory/(assets - goodwill), 60))) * rank(ts_rank(inventory_turnover, 120))**
+    *   _Reasoning_: This is the overall formula used to create the alpha, where a combination of both the ratio of inventory to total assets (adjusted for goodwill) and the inventory turnover ratio is considered. It takes the time series rank of each element and multiplies it by the value of .5 minus the first ratio’s rank, thus assigning a long or short position.
+
+
+
+The video explains how to build an alpha based on relationship data, specifically using the number of customers a company has, and the sentiment volumes captured on social media. The presenter states that the number of customers is the total number of users of a company's products and services, which can also be publicly traded companies. Social sentiment volume represents how much a company is mentioned on social media, indicating the level of interest people or investors take in its business activities. As the number of customers increase, the social sentiment volume will increase as well. To normalize the social sentiment volume, the presenter explains that a social sentiment volume per customer is needed and states that the hypothesis is that “If per-customer social sentiment volume is increasing, then the level of interest investors are taking in the company is also increasing”. This means the company's stock price could increase, and the opposite if it is decreasing. 
+
+To implement this, the presenter explains the implementation uses the time-series rank operator, which ranks the current value of the first argument with its own values over n days. The value returned from this operation will always be between 0.0 and 1.0. A backtesting simulation ran for the previous 5 years to generate an alpha vector each day. If the value returned from the operator is negative, the stock gets shorted and vice versa. For the simulation, the top 3000 US stocks are used with a maximum capital of 1% in any stock with a delay of 1 day. The alpha is neutralized with the market. The Sharpe is 1.9, a return to drawdown ratio of 4, and the turnover is 30%. The presenter states that potential ways to improve the idea are by incorporating whether the sentiment about the stock is positive or negative. 
+
+Formulas:
+    -  ALPHA: Ts_rank(snt_social_volume/rel_num_cust, 60) 
+
+        -   This formula divides the social sentiment volume by the number of customers, which is used to calculate the per-customer sentiment volume. Then, a time series rank function is applied to this value, meaning the formula looks back at the past 60 days of per-customer social sentiment volume values and outputs a rank based on the current day. As stated earlier, this rank will be between 0 and 1. The reasoning behind this is that the presenter hypothesized that if the per-customer sentiment value is increasing, that indicates more interest from investors, which leads to an increase in stock price. The opposite is true as well, meaning if this value is decreasing, this indicates less interest from investors, and therefore a decrease in stock price.
+
+
+The video explains how to build an alpha based on the relationship data using the returns of customer companies and the number of competitors. It starts by establishing that customer company returns have a significant impact on the subject company's returns, as high customer business growth will likely translate to increased subject company revenue due to increased customer orders. It then notes that the number of competitors represents the total number of companies that conduct similar business to the subject company that compete with one another for revenue. Higher numbers of competitors means a smaller slice of the pie for all of them, reducing the potential influence customer returns have on the subject company.
+
+The video proposes that if the ratio of customer companies' stock returns to the number of competitors is growing, then the subject company stock price will increase, and it will decrease for declining ratios. The idea is implemented using two operators: GROUPRANK and ARGMIN. The GROUPRANK operator ranks the second input argument (a stock) among all the stocks in the grouping provided as the first argument, returning a value equally distributed between 0.0 and 1.0. The ARGMIN operator returns the relative index of the minimum value of the input argument over the preceding n days. A backtesting simulation is run for the past 5 years, and values assigned to each stock are negative if short, positive if long, and these are then grouped within subindustries. For the simulation, the top 3000 US stocks are used with a delay of 1 day, a max stock weight of 10%, and a neutralization by industry. The simulation results show a Sharpe ratio of around 1.9, a returns-to-drawdown ratio of around 3.5, and a turnover of 15%. The simulation shows decent alpha coverage, PnL spread across all capitalizations, and even capital distribution between industries. Some potential improvements would be incorporating the effects of partner company returns, as they have an impact on the subject company’s day-to-day business.
+
+Formulas Used:
+
+1.  **ALPHA = GroupRank(subindustry, Argmin(rel_ret_cust / rel_num_comp, 15))**
+
+    *   **rel_ret_cust**: The relative returns of customer companies' stocks.
+    *   **rel_num_comp**: The relative number of competitors for the subject company.
+    *   **15**: The lookback period (in days) for which the minimum ratio will be calculated by Argmin.
+    *   **subindustry**: The grouping by subindustry for GroupRank.
+
+   **Reasoning:**
+
+    *   **rel_ret_cust/ rel_num_comp:** This ratio serves as a key indicator. When returns for customer companies are high (suggesting business growth) while the competition (number of similar businesses) is low or decreasing, this ratio would be high. A lower ratio would be suggestive of lower customer company returns and high or increasing numbers of competitors.
+    *   **Argmin(…, 15):** The Argmin operator then calculates how the above ratio has changed over the previous 15 days. The Argmin operator returns the index of the day that the lowest ratio has appeared in the last 15 days. A rising ratio would thus see a higher index, a declining ratio a lower index.
+    *  **GroupRank(subindustry, ...):** The GroupRank operator then takes that index value and ranks the stocks of similar subindustries based on the relative increase or decrease of the stock. This number is distributed between 0-1, allowing for easy calculation.
+     This calculation identifies companies where high returns for their customers and decreasing numbers of competitors have the strongest recent trend, or vice versa.
+
+2.  **No specific formulas are used for simulation, only the following parameters:**
+    *   **Universe**: Top 3000 US stocks based on liquidity.
+    *   **Delay**: 1 day (to avoid look-ahead bias).
+    *   **Max Stock Weight**: 10%.
+    *   **Neutralization**: by Industry (to remove sector specific factors)
+
+
+
+The video explains the concept of sentiment data in financial markets. It defines sentiment as the aggregate market mood about stocks, classifying rising stock prices as "bullish" and declining prices as "bearish". The intensity of sentiment represents its strength, with higher intensity suggesting stronger market movements. Social media sentiment, captured through discussions and posts, is a key component of the data. The video then covers the different data fields of sentiment data, including:
+
+*   **`snt_value`**: Indicates the mood of a sentiment; values below zero are negative and above zero are positive.
+*   **`snt_buzz`**: Indicates the intensity of a sentiment, with the average value being 1. Values below 1 are low and above 1 are high intensity.
+*   **`snt_buzz_bfl`**: Same as `snt_buzz` but an average value of 1 is populated if the entry is missing.
+*   **`snt_buzz_ret`**: The percentage change in `snt_buzz` from the previous day.
+*   **`snt_bearish`**:  Bearish sentiment on a scale of 0-4.
+*   **`snt_bullish`**: Bullish sentiment on a scale of 0-4.
+*   **`snt_ratio`**: Ratio of Bullish and Bearish sentiment, calculated from raw values.
+*   **`snt_ratio_tsrank`**: The time-series rank of the `snt_ratio` data.
+*   **`snt_bearish_tsrank`**: The time-series rank of the `snt_bearish` data.
+*   **`snt_bullish_tsrank`**: The time-series rank of the `snt_bullish` data.
+*   **`snt_social_value`**: Normalized value of sentiment derived from social media.
+*   **`snt_social_volume`**: Volume of sentiment derived from social media; higher volume indicates more activity.
+
+The video concludes by showing a Python code snippet for retrieving and using the `snt_social_value` data field.
+
+**Formulas and Reasoning**
+Here is the Python code provided in the video with a description of the reasoning for the formulas:
+
+```python
+import scipy as sp
+import numpy as np
+import scipy.stats as ss
+
+delay = DELAY
+#dr is the Data Registry
+valid = dr.GetData("UNIVID")
+
+#Lines above will be added as a common header to your code, without "#".
+
+#-------------------- Write your code below----------------------
+
+social_snt_val=dr.GetData("snt_social_value")
+
+def generate(di,alpha):
+    k = di - delay
+    alpha[:]=Rank(social_snt_val[k,:])
+    mask = valid[k,:]
+    alpha[~mask] = np.nan
+```
+* **`social_snt_val=dr.GetData("snt_social_value")`:** This line retrieves the normalized social sentiment data for all the stocks and assigns it to the `social_snt_val` variable. It allows for the social media sentiment value to be used in calculations.
+* **`def generate(di,alpha):`**: This defines a Python function named generate, this function is used to perform operations over time. `di` is the date index and `alpha` is the matrix that will hold the results of the calculations.
+* **`k = di - delay`**: This calculates the index `k` that accounts for a delay, which can be important for a simulation environment. The delay is a global variable.
+* **`alpha[:]=Rank(social_snt_val[k,:])`**: This ranks the social sentiment values of all stocks for the specific date index.  This function assigns a rank to each value. Higher social sentiment values will receive a higher ranking.  The `:` denotes that this function will rank all stocks for a specific time.  The rank operator is important because it normalizes the data, making it easier to compare the social sentiment values of different stocks in the universe.
+* **`mask = valid[k,:]`**:  This assigns the valid universe on the date index to the variable mask, for further filtering the data.
+* **`alpha[~mask] = np.nan`**:  This masks the `alpha` data based on the `mask`, such that all values which do not have a corresponding stock in the valid universe on that date become `NaN` (not a number). This is used because the rank function operates on all stocks, and it is important to remove the stocks which are not present in the simulation for this time.
+
+
+The video explains how to build an alpha that captures an event and uses sentiment data to take positions on equities. Social media discussions of future stock price movements are captured in social sentiment data, specifically social sentiment volume and social sentiment value. Social sentiment volume represents the amount of discussions and post activity.  A higher volume indicates more activity, generally observed around a significant event. Social sentiment value is a normalized value of sentiment derived from social media; a higher value is associated with bullish sentiment, while a lower value is associated with bearish sentiment. The hypothesis is that if the current social sentiment volume of a stock is high compared to itself and other stocks, it indicates an event. The strategy assigns more capital to stocks with higher values of the ratio of current sentiment to the maximum observed in the past quarter, which indicates bullish sentiment, and lowers the weights to stocks with bearish sentiment.
+
+Formulas and Reasoning:
+
+The video displays the following formula:
+
+```
+rank(ts_rank(snt_social_volume,60))>=0.6?
+group_rank(subindustry,((sum(snt_social_value,10)/10)/(ts_max(snt_social_value,60)))):0
+```
+
+Explanation of Operators:
+
+*   **`rank(ts_rank(snt_social_volume,60))>=0.6?`**
+    *   `snt_social_volume`: The raw social media volume for a stock
+    *   `ts_rank(snt_social_volume,60)`: The rank of the current social volume of the stock as compared to its own past 60 days, between 0 and 1. This helps in identifying if a stock's current social media volume is higher than its usual values and indicates an event.
+    *  `rank(ts_rank(snt_social_volume,60))`: The rank of above output between 0 and 1 across the universe of all stocks. This measures the relative social volume as compared to other stocks.
+    * `rank(ts_rank(snt_social_volume,60))>=0.6?` If the relative social volume is in the top 40% among all the stocks, then execute the rest of the formula; if not, the output is zero.
+
+*   **`group_rank(subindustry,((sum(snt_social_value,10)/10)/(ts_max(snt_social_value,60))))`**
+    *   `snt_social_value`: The normalized sentiment score for a stock from social media (a value between -1 and +1). 
+    *  `sum(snt_social_value,10)`:  Sums the sentiment score from past 10 days to get a measure of current sentiment.
+    *   `sum(snt_social_value,10) / 10`: Computes the average sentiment score for a stock over the last 10 days.
+    *   `ts_max(snt_social_value,60)`:  Calculates the maximum value of social sentiment value that the stock has achieved in the past 60 days.
+    *  `sum(snt_social_value,10)/10/(ts_max(snt_social_value,60)`: Compares the recent sentiment with the historical max for each stock.
+    *   `group_rank(subindustry,(…))`: The relative rank of the recent sentiment strength compared to the maximum seen in the past in the subindustry.
+
+*  `0`: The output when the conditions in rank(ts_rank(snt_social_volume,60))>=0.6 are not met.
+
+Reasoning Behind the Formula:
+
+The formula combines event detection with sentiment analysis. The initial `ts_rank` operator identifies event occurrences by measuring if social sentiment volume is higher than usual for a particular stock.  The `rank` function is used to get a relative measure across all stocks in the universe.  If the rank is in the top 40%, then an event is triggered.
+
+If an event is triggered, a `group_rank` operator calculates the relative sentiment of the stock within the subindustry. To arrive at a sentiment value, the sum of the last 10 days is divided by 10. This measures the average sentiment for the past ten days, indicating the direction of sentiment after the event.   This value is compared against the maximum value seen in the last 60 days using `ts_max` to get a scaled value of recent sentiment compared to the maximum. The output of the `group_rank` operator returns a score between 0 and 1 for all stocks that satisfied the event condition, the score is used as weight for generating an alpha vector.
+
+Together, this logic provides a way to allocate capital based on the occurrence of significant social media buzz with positive/negative sentiment associated with it.
+
+
+
+Here's a summary of the video and the formulas with their reasoning:
+
+**Summary**
+
+The video discusses using social media sentiment volume data, combined with base price data, to predict stock price movements. The core idea is that heightened investor discussion of a stock on social media can correlate with price reversals, particularly when a stock's closing price is not in the midpoint of the daily high-low range. The video outlines a trading algorithm that goes long if the price is predicted to rise and short if the price is predicted to fall. The implementation uses operators (rank and time series rank). The simulation is run across 5 years with specific parameters to backtest. Results show decent Sharpe ratios, return to drawdown, and P&L across capitalisation groups, suggesting the strategy is promising.
+
+**Formulas and Reasoning**
+
+The primary formula for creating an alpha signal is this:
+
+```
+ALPHA = rank(  ((high+low)/2 – close)/(high-low)) * rank(ts_rank(snt_social_volume, 40))
+```
+
+Here is an explanation for each part of the formula:
+* **((high+low)/2 – close)/(high-low)**:
+  *   This part of the equation represents how far the close is from the midpoint of the daily price. `(high + low) / 2` determines the midpoint of the high-low range.
+  *  Subtracting `close` from the midpoint highlights how far the closing price is from the middle of the range.
+  * Dividing by `(high-low)` normalizes the output relative to the range so that any day range can be compared to each other, and the result of this expression is a value from -1 to 1. This normalized value measures how the current price compares to its intraday range,
+   * The idea here is that if the closing price is less than the midpoint of its high-low range, this part of the equation will be negative and could suggest an upward trend the next day, and vice versa. This captures a reversal signal based on base price data.
+*   **`rank(...)`**: This rank operator ranks the result of the first expression across all stocks in the universe.  It assigns a value between 0.0 and 1.0, showing the relative performance of each stock.
+*   **`ts_rank(snt_social_volume, 40)`**:
+    *  `snt_social_volume` refers to the social media sentiment volume of the stock.
+    * `ts_rank` (time series rank) operator takes this volume and ranks it against its past 40 days.
+  * This output also provides values between 0.0 and 1.0, with a higher value indicating an increase of investor activity compared to the preceding 40 days.
+  * The intent is to represent a stock with increased interest.
+
+*   **`rank(...) * rank(ts_rank(...))`**:
+  * The rank of the reversal signal is then multiplied by the sentiment rank, combining both the base price and the sentiment to produce a final alpha value. This makes sure that the algorithm only goes long on stocks that are expected to trend upward and have heightened social sentiment activity.
+   * In other words, a higher sentiment volume and a lower closing price relative to the range will result in a higher alpha, indicating a "buy" recommendation.
+
+* **Reasoning Behind the Formula:**
+    *   The overall logic is to find securities where sentiment volume is trending upward and the price is moving contrary to its intraday trend.
+    *   By ranking each part of the expression, all outputs are kept between 0 and 1, and can be compared effectively to each other.
+    *   Multiplying two rankings together prioritizes positions with good price reversal signals and high sentiment momentum.
+    * The alpha is normalized, not giving large weights to high price stocks.
+    * This combines base data with social sentiment to identify likely price changes the next day.
+
+The video also mentions the following concepts, which are not formulas, but are important to understand the logic:
+* **Rank operator**
+  * Ranks input arguments of a stock among all stocks in a universe
+  * Result is a value from 0.0 to 1.0 that is evenly distributed.
+* **TS_rank operator**
+  * Ranks the first argument value with respect to its own values over the past n days.
+  *  Result is a value between 0.0 and 1.0.
+*   **Delay:** Setting a delay of 1 is done to reduce lookahead bias
+*   **Neutralization:** Subindustry neutralization is used to remove industry biases.
+
+This formula allows the algorithm to have a quantifiable value to predict whether the stock should be bought or sold. The rest of the results that are shown are based on backtesting of the alpha formula using a variety of parameters.
+
+
+This video explains how to build an alpha based on a stock’s sentiment strength. It explains that bullish sentiment corresponds to expectations of upward price movement, while bearish sentiment corresponds to expectations of downward price movement. It is noted that a bearish sentiment data field has a high value when prices are in a downtrend, and a bullish sentiment data field has a high value when prices are moving up. Sentiment volume indicates how much information about a stock is flowing in the market. It includes discussion, posts, and news, where a higher sentiment volume indicates a stronger sentiment value signal. This is because more market participants might be involved in the discussion. The video explains the ratio of bullish to bearish sentiment as a proxy for market sentiment, where a value greater than one indicates bullish sentiment dominates and a value less than one indicates that bearish sentiment dominates the market. The video hypothesizes that prices might increase when the ratio of bullish sentiment to bearish sentiment is high and sentiment volume is also rising. Conversely, prices might fall when there are low values of both.
+
+**Formulas:**
+
+*   **Alpha = GroupRank(market, snt_bullish/snt_bearish) \* ts_rank(snt_social_volume, 254)**
+ 
+    *   `GroupRank(market, snt_bullish/snt_bearish)`: This part calculates the ratio of bullish sentiment to bearish sentiment for all the stocks in the market using the market variable. `GroupRank` then assigns a number between 0 and 1 to each stock, which is distributed amongst all stocks based on the bullish-to-bearish ratio. This encapsulates the overall sentiment and then ranks each stock against this calculated sentiment.
+
+    *   `ts_rank(snt_social_volume, 254)`: This term calculates the time series rank of social sentiment volume over a lookback of 254 trading days, giving it a number between 0 and 1, where a higher rank indicates higher recent sentiment volume and a lower rank indicates low recent social sentiment volume.
+
+*   The overall formula is multiplying these two components together. This means we're seeking to find out when a stock has both positive sentiment from the crowd and the crowd is more engaged than before, as this is an indication of a stronger trend.
+
+
+
+Summary of the video:
+
+This video discusses how to use sentiment data to build an alpha. Sentiment data represents investors’ feelings regarding the future price trend of a security. When sentiment is high, a security may become overpriced due to excessive buying, while low sentiment can lead to a security becoming underpriced due to excessive selling. The amount of discussion about a security on social media determines the volume of sentiment data from those platforms. This data is valuable because enhanced investor activity is often followed by reversals of price trends. The hypothesis is if sentiment is high for a stock the price is likely to decrease due to overpricing and vice versa. The alpha is implemented by utilizing three operators: Rank, Time Series Minimum and Time Series Maximum. A backtesting simulation is run for 5 years to generate an alpha vector. If the value is negative, it shorts the stock and it goes long for stocks with positive values. They use the top 2000 US stocks and the max stock weight can take 1%. Data has a delay of 1 to prevent look ahead bias. The alpha is neutralized over the market.
+
+Formulas and Reasoning:
+
+ALPHA
+
+y = snt_bullish - snt_bearish
+
+This calculates the overall sentiment by subtracting the bearish sentiment value from the bullish sentiment value. The result is then stored in variable y.
+
+rank(-(y-ts_min(y,10))/(ts_max(y,10)-ts_min(y,10)))*(1+rank(snt_social_volume))
+
+This formula calculates the alpha expression.
+
+First the current value of y is subtracted from its minimum over the last ten days (time series minimum operator) which is then divided by the difference of its max and min values over the last 10 days. The negative of this is then ranked and is meant to implement the reversion. The expression then multiplies that result with (1 + rank(snt_social_volume)) which means to add a rank of social volume, which is a form of normalization. This is meant to emphasize if high volume is correlated to bullish or bearish sentiments.  
+
+Rank Operator
+
+Ranks the input argument of a stock among all stocks in the universe so that the assigned values are distributed between 0.0 and 1.0
+
+TS_Min Operator
+Computes the minimum value of the first input argument over the past n days.
+
+TS_Max Operator
+
+Computes the maximum value of the first input argument observed over the past n days.
+
+
+
